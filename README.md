@@ -1,5 +1,8 @@
 This is the github repository for the QASMT Teamnamhere team for the 24-25 Into The Deep season.
 
+⚠️⚠️⚠️
+If you do not know how github works, please talk to me (LW) and I will teach you, otherwise you may cause some very big headaches
+
 Below is the original readme for the SDK that we forked:
 
 ## NOTICE
