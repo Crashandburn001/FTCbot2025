@@ -31,12 +31,13 @@ public class BasicOpMode_Iterative extends OpMode
     private DcMotor rightFront = null;
     private DcMotor rightBack = null;
 
+    private DcMotor slide = null
     /*
      * Code to run ONCE when the driver hits INIT
      */
     @Override
     public void init() {
-        telemetry.addData("Status", "Initialized");
+        telemetry.addData("Status", "Initializing");
 
         // Initialize the hardware variables. Note that the strings used here as parameters
         // to 'get' must correspond to the names assigned during the robot configuration
@@ -45,7 +46,7 @@ public class BasicOpMode_Iterative extends OpMode
         leftBack   = hardwareMap.get(DcMotor.class, "left_back_drive");
         rightFront = hardwareMap.get(DcMotor.class, "right_front_drive");
         rightBack  = hardwareMap.get(DcMotor.class, "right_back_drive");
-
+        slide
             // To drive forward, most robots need the motor on one side to be reversed, because the axles point in opposite directions.
         // Pushing the left stick forward MUST make robot go forward. So adjust these two lines based on your first test drive.
         // Note: The settings here assume direct drive on left and right wheels.  Gear Reduction or 90 Deg drives may require direction flips
@@ -91,10 +92,13 @@ public class BasicOpMode_Iterative extends OpMode
         // - This uses basic math to combine motions and is easier to drive straight.
         double drive = -gamepad1.left_stick_y;
         double turn  =  gamepad1.right_stick_x;
+        double slideup =  gamepad1.right_trigger-gamepad1.left_trigger;
+        double slideangle
         leftFrontPower  = Range.clip(drive + turn, -1.0, 1.0) ;
         leftBackPower   = Range.clip(drive + turn, -1.0, 1.0) ;
         rightFrontPower = Range.clip(drive - turn, -1.0, 1.0) ;
         rightBackPower  = Range.clip(drive - turn, -1.0, 1.0) ;
+        slidePower      = Range.clip(slideup, , ) ;
 
         // Tank Mode uses one stick to control each wheel.
         // - This requires no math, but it is hard to drive forward slowly and keep straight.
