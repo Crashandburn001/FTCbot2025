@@ -6,7 +6,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
-
+import com.qualcomm.robotcore.hardware.Servo;
 /*
  * This file contains an example of an iterative (Non-Linear) "OpMode".
  * An OpMode is a 'program' that runs in either the autonomous or the TeleOp period of an FTC match.
@@ -30,8 +30,9 @@ public class BasicOpMode_Iterative extends OpMode
     private DcMotor leftBack = null;
     private DcMotor rightFront = null;
     private DcMotor rightBack = null;
-
-    private DcMotor slide = null
+    private DcMotor arm = null;
+    private Servo claw = null;
+    private Servo yaw = null;
     /*
      * Code to run ONCE when the driver hits INIT
      */
@@ -42,18 +43,24 @@ public class BasicOpMode_Iterative extends OpMode
         // Initialize the hardware variables. Note that the strings used here as parameters
         // to 'get' must correspond to the names assigned during the robot configuration
         // step (using the FTC Robot Controller app on the phone).
-        leftFront  = hardwareMap.get(DcMotor.class, "left_front_drive");
-        leftBack   = hardwareMap.get(DcMotor.class, "left_back_drive");
+        leftFront  = hardwareMap.get(DcMotor.class, "left_front_drive" );
+        leftBack   = hardwareMap.get(DcMotor.class, "left_back_drive"  );
         rightFront = hardwareMap.get(DcMotor.class, "right_front_drive");
-        rightBack  = hardwareMap.get(DcMotor.class, "right_back_drive");
-        slide
-            // To drive forward, most robots need the motor on one side to be reversed, because the axles point in opposite directions.
+        rightBack  = hardwareMap.get(DcMotor.class, "right_back_drive" );
+        arm        = hardwareMap.get(DcMotor.class, "arm"              );
+
+        claw       = hardwareMap.get(Servo  .class, "claw"             );
+        yaw        = hardwareMap.get(Servo  .class, "yaw"              );
+
+        // To drive forward, most robots need the motor on one side to be reversed, because the axles point in opposite directions.
         // Pushing the left stick forward MUST make robot go forward. So adjust these two lines based on your first test drive.
         // Note: The settings here assume direct drive on left and right wheels.  Gear Reduction or 90 Deg drives may require direction flips
-        leftFront.setDirection(DcMotor.Direction.FORWARD);
-        leftBack.setDirection(DcMotor.Direction.FORWARD);
+        leftFront .setDirection(DcMotor.Direction.FORWARD);
+        leftBack  .setDirection(DcMotor.Direction.FORWARD);
         rightFront.setDirection(DcMotor.Direction.REVERSE);
-        rightBack.setDirection(DcMotor.Direction.REVERSE);
+        rightBack .setDirection(DcMotor.Direction.REVERSE);
+        arm       .setDirection(DcMotor.Direction.FORWARD);
+
 
         // Tell the driver that initialization is complete.
         telemetry.addData("Status", "Initialized");
@@ -80,36 +87,43 @@ public class BasicOpMode_Iterative extends OpMode
     @Override
     public void loop() {
         // Setup a variable for each drive wheel to save power level for telemetry
-        double leftFrontPower;
-        double leftBackPower;
-        double rightFrontPower;
-        double rightBackPower;
+        double leftFrontPower  ;
+        double leftBackPower   ;
+        double rightFrontPower ;
+        double rightBackPower  ;
+        double armPower        ;
 
-        // Choose to drive using either Tank Mode, or POV Mode
-        // Comment out the method that's not used.  The default below is POV.
+        double drive      = - gamepad1.left_stick_y                          ;
+        double turn       =   gamepad1.right_stick_x                         ;
+        // double slideup    =   gamepad1.right_trigger - gamepad1.left_trigger ;
+        double slideangle =   gamepad1.right_stick_y                         ;
 
-        // POV Mode uses left stick to go forward, and right stick to turn.
-        // - This uses basic math to combine motions and is easier to drive straight.
-        double drive = -gamepad1.left_stick_y;
-        double turn  =  gamepad1.right_stick_x;
-        double slideup =  gamepad1.right_trigger-gamepad1.left_trigger;
-        double slideangle
-        leftFrontPower  = Range.clip(drive + turn, -1.0, 1.0) ;
-        leftBackPower   = Range.clip(drive + turn, -1.0, 1.0) ;
-        rightFrontPower = Range.clip(drive - turn, -1.0, 1.0) ;
-        rightBackPower  = Range.clip(drive - turn, -1.0, 1.0) ;
-        slidePower      = Range.clip(slideup, , ) ;
+        leftFrontPower    =   Range.clip(drive + turn, -1.0, 1.0) ;
+        leftBackPower     =   Range.clip(drive + turn, -1.0, 1.0) ;
+        rightFrontPower   =   Range.clip(drive - turn, -1.0, 1.0) ;
+        rightBackPower    =   Range.clip(drive - turn, -1.0, 1.0) ;
+        armPower          =   Range.clip(slideangle  , -1.0, 1.0) ;
 
-        // Tank Mode uses one stick to control each wheel.
-        // - This requires no math, but it is hard to drive forward slowly and keep straight.
-        // leftPower  = -gamepad1.left_stick_y ;
-        // rightPower = -gamepad1.right_stick_y ;
+        if(gamepad1.left_bumper){
+            claw.setPosition(1);
+        } else if (gamepad1.right_bumper){
+            claw.setPosition(0);
+        }
+
+        if(gamepad1.dpad_left){
+            yaw.setPosition(1);
+        } else if (gamepad1.dpad_right){
+            yaw.setPosition(0);
+        }
 
         // Send calculated power to wheels
-        leftFront.setPower(leftFrontPower);
-        leftBack.setPower(leftBackPower);
+        leftFront .setPower(leftFrontPower) ;
+        leftBack  .setPower(leftBackPower)  ;
         rightFront.setPower(rightFrontPower);
-        rightBack.setPower(rightBackPower);
+        rightBack .setPower(rightBackPower) ;
+        arm       .setPower(armPower)       ;
+
+
 
         // Show the elapsed game time and wheel power.
 //        telemetry.addData("Status", "Run Time: " + runtime.toString());
