@@ -31,7 +31,7 @@ public class BasicOpMode_Iterative extends OpMode
     private DcMotor rightFront = null;
     private DcMotor rightBack = null;
 
-    private DcMotor slide = null
+    private DcMotor slide = null;
     /*
      * Code to run ONCE when the driver hits INIT
      */
@@ -45,8 +45,7 @@ public class BasicOpMode_Iterative extends OpMode
         leftFront  = hardwareMap.get(DcMotor.class, "left_front_drive");
         leftBack   = hardwareMap.get(DcMotor.class, "left_back_drive");
         rightFront = hardwareMap.get(DcMotor.class, "right_front_drive");
-        rightBack  = hardwareMap.get(DcMotor.class, "right_back_drive");
-        slide
+        rightBack  = hardwareMap.get(DcMotor.class, "right_back_drive")
             // To drive forward, most robots need the motor on one side to be reversed, because the axles point in opposite directions.
         // Pushing the left stick forward MUST make robot go forward. So adjust these two lines based on your first test drive.
         // Note: The settings here assume direct drive on left and right wheels.  Gear Reduction or 90 Deg drives may require direction flips
