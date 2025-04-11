@@ -81,9 +81,9 @@ public class BasicOpMode_Iterative extends LinearOpMode {
 
             // Slide pitch control with Triangle (Y) and X
             if (gamepad1.y) {
-                slidePitch.setPower(0.8); // Move up (geared)
+                targetPosition = targetPosition + 1; // Move up (geared)
             } else if (gamepad1.x) {
-                slidePitch.setPower(-0.8); // Move down (geared)
+                targetPosition = targetPosition - 1; // Move down (geared)
             } else {
                 slidePitch.setPower(0); // Stop
             }
