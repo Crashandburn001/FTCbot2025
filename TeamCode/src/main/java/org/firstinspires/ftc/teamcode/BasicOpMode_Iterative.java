@@ -1,134 +1,208 @@
+package org.firstinspires.ftc.teamcode;
 
-import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.util.ElapsedTime;
-import com.qualcomm.robotcore.util.Range;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.Servo;
-/*
- * This file contains an example of an iterative (Non-Linear) "OpMode".
- * An OpMode is a 'program' that runs in either the autonomous or the TeleOp period of an FTC match.
- * The names of OpModes appear on the menu of the FTC Driver Station.
- * When a selection is made from the menu, the corresponding OpMode
- * class is instantiated on the Robot Controller and executed.
- *
- * This particular OpMode just executes a basic Tank Drive Teleop for a two wheeled robot
- * It includes all the skeletal structure that all iterative OpModes contain.
- *
- * Use Android Studio to Copy this Class, and Paste it into your team's code folder with a new name.
- * Remove or comment out the @Disabled line to add this OpMode to the Driver Station OpMode list
- */
 
-@TeleOp(name="Basic: Iterative OpMode", group="Iterative OpMode")
-public class BasicOpMode_Iterative extends OpMode
-{
-    // Declare OpMode members.
-    private final ElapsedTime runtime = new ElapsedTime();
-    private DcMotor leftFront = null;
-    private DcMotor leftBack = null;
-    private DcMotor rightFront = null;
-    private DcMotor rightBack = null;
-    private DcMotor arm = null;
-    private Servo claw = null;
-    private Servo yaw = null;
-    /*
-     * Code to run ONCE when the driver hits INIT
-     */
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+
+@TeleOp
+public class BasicOpMode_Iterative extends LinearOpMode {
+
+    private double Kp = 0.05;
+    private double Ki = 0.001;
+    private double Kd = 0.01;
+
+    private File pidFile = new File(hardwareMap.appContext.getFilesDir(), "pid_config.txt");
+
+    // Variable to store the current wrist pitch position
+    private double wristPitchPosition = 0.5;
+
+    // Variable to track if the wrist pitch is being manually controlled
+    private boolean isManualWristPitchControl = false;
+
+    // PID variables for slide pitch
+    private double previousError = 0;
+    private double integral = 0;
+    private double targetPosition = 0;
+
     @Override
-    public void init() {
-        telemetry.addData("Status", "Initializing");
+    public void runOpMode() throws InterruptedException {
 
-        // Initialize the hardware variables. Note that the strings used here as parameters
-        // to 'get' must correspond to the names assigned during the robot configuration
-        // step (using the FTC Robot Controller app on the phone).
-        leftFront  = hardwareMap.get(DcMotor.class, "left_front_drive" );
-        leftBack   = hardwareMap.get(DcMotor.class, "left_back_drive"  );
-        rightFront = hardwareMap.get(DcMotor.class, "right_front_drive");
-        rightBack  = hardwareMap.get(DcMotor.class, "right_back_drive" );
-        arm        = hardwareMap.get(DcMotor.class, "arm"              );
+        // Load PID values from file at the start
+        loadPIDValues();
 
-        claw       = hardwareMap.get(Servo  .class, "claw"             );
-        yaw        = hardwareMap.get(Servo  .class, "yaw"              );
+        // Declare our motors
+        DcMotor frontLeftMotor = hardwareMap.dcMotor.get("frontLeftMotor");
+        DcMotor backLeftMotor = hardwareMap.dcMotor.get("backLeftMotor");
+        DcMotor frontRightMotor = hardwareMap.dcMotor.get("frontRightMotor");
+        DcMotor backRightMotor = hardwareMap.dcMotor.get("backRightMotor");
+        DcMotor slidePitch = hardwareMap.dcMotor.get("slidePitch");
+        DcMotor slideRetraction = hardwareMap.dcMotor.get("slideRetraction");
 
-        // To drive forward, most robots need the motor on one side to be reversed, because the axles point in opposite directions.
-        // Pushing the left stick forward MUST make robot go forward. So adjust these two lines based on your first test drive.
-        // Note: The settings here assume direct drive on left and right wheels.  Gear Reduction or 90 Deg drives may require direction flips
-        leftFront .setDirection(DcMotor.Direction.FORWARD);
-        leftBack  .setDirection(DcMotor.Direction.FORWARD);
-        rightFront.setDirection(DcMotor.Direction.REVERSE);
-        rightBack .setDirection(DcMotor.Direction.REVERSE);
-        arm       .setDirection(DcMotor.Direction.FORWARD);
+        Servo wristPitch = hardwareMap.servo.get("wristPitch");
+        Servo clawRoll = hardwareMap.servo.get("clawRoll");
+        Servo clawGrip = hardwareMap.servo.get("clawGrip");
 
+        // Reverse the right side motors.
+        frontRightMotor.setDirection(DcMotorSimple.Direction.REVERSE);
+        backRightMotor.setDirection(DcMotorSimple.Direction.REVERSE);
 
-        // Tell the driver that initialization is complete.
-        telemetry.addData("Status", "Initialized");
-    }
+        // Brake when not moving slidePitch
+        slidePitch.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-    /*
-     * Code to run REPEATEDLY after the driver hits INIT, but before they hit START
-     */
-    @Override
-    public void init_loop() {
-    }
+        waitForStart();
 
-    /*
-     * Code to run ONCE when the driver hits START
-     */
-    @Override
-    public void start() {
-        runtime.reset();
-    }
+        if (isStopRequested()) return;
 
-    /*
-     * Code to run REPEATEDLY after the driver hits START but before they hit STOP
-     */
-    @Override
-    public void loop() {
-        // Setup a variable for each drive wheel to save power level for telemetry
-        double leftFrontPower  ;
-        double leftBackPower   ;
-        double rightFrontPower ;
-        double rightBackPower  ;
-        double armPower        ;
+        while (opModeIsActive()) {
 
-        double drive      = - gamepad1.left_stick_y                          ;
-        double turn       =   gamepad1.right_stick_x                         ;
-        // double slideup    =   gamepad1.right_trigger - gamepad1.left_trigger ;
-        double slideangle =   gamepad1.right_stick_y                         ;
+            // Drive control
+            double y = -gamepad1.left_stick_y;
+            double x = gamepad1.left_stick_x * 1.1;
+            double rx = gamepad1.right_stick_x;
 
-        leftFrontPower    =   Range.clip(drive + turn, -1.0, 1.0) ;
-        leftBackPower     =   Range.clip(drive + turn, -1.0, 1.0) ;
-        rightFrontPower   =   Range.clip(drive - turn, -1.0, 1.0) ;
-        rightBackPower    =   Range.clip(drive - turn, -1.0, 1.0) ;
-        armPower          =   Range.clip(slideangle  , -1.0, 1.0) ;
+            double denominator = Math.max(Math.abs(y) + Math.abs(x) + Math.abs(rx), 1);
+            double frontLeftPower = (y + x + rx) / denominator;
+            double backLeftPower = (y - x + rx) / denominator;
+            double frontRightPower = (y - x - rx) / denominator;
+            double backRightPower = (y + x - rx) / denominator;
 
-        if(gamepad1.left_bumper){
-            claw.setPosition(1);
-        } else if (gamepad1.right_bumper){
-            claw.setPosition(0);
+            frontLeftMotor.setPower(frontLeftPower);
+            backLeftMotor.setPower(backLeftPower);
+            frontRightMotor.setPower(frontRightPower);
+            backRightMotor.setPower(backRightPower);
+
+            // Slide pitch control with Triangle (Y) and X
+            if (gamepad1.y) {
+                slidePitch.setPower(0.8); // Move up (geared)
+            } else if (gamepad1.x) {
+                slidePitch.setPower(-0.8); // Move down (geared)
+            } else {
+                slidePitch.setPower(0); // Stop
+            }
+
+            // Slide retraction control with R2 (extend) and L2 (retract)
+            if (gamepad1.right_trigger > 0) {
+                slideRetraction.setPower(0.8); // Extend (not geared)
+            } else if (gamepad1.left_trigger > 0) {
+                slideRetraction.setPower(-0.8); // Retract (not geared)
+            } else {
+                slideRetraction.setPower(0); // Stop
+            }
+
+            // Adjust wrist pitch automatically based on slide pitch
+            double slidePitchPower = slidePitch.getPower();
+            if (slidePitchPower != 0) {
+                // Moving slide up or down, adjust wrist pitch to maintain orientation
+                if (!isManualWristPitchControl) {
+                    wristPitchPosition = 0.5 - slidePitch.getCurrentPosition() / 1000.0; // Adjust formula for your system's needs
+                }
+            }
+
+            // Manual control of wrist pitch
+            if (gamepad1.dpad_up) {
+                wristPitchPosition += 0.05;  // Move wrist pitch up
+                isManualWristPitchControl = true; // Start manual control
+            } else if (gamepad1.dpad_down) {
+                wristPitchPosition -= 0.05;  // Move wrist pitch down
+                isManualWristPitchControl = true; // Start manual control
+            } else {
+                isManualWristPitchControl = false; // No manual control
+            }
+
+            // Clamp wrist pitch position to valid range
+            wristPitchPosition = Math.max(0, Math.min(1, wristPitchPosition));
+
+            wristPitch.setPosition(wristPitchPosition);
+
+            // Claw Yaw/Roll using gamepad left and right
+            if (gamepad1.dpad_left) {
+                clawRoll.setPosition(clawRoll.getPosition() + 0.05);
+            } else if (gamepad1.dpad_right) {
+                clawRoll.setPosition(clawRoll.getPosition() - 0.05);
+            }
+
+            // Claw Grip control
+            if (gamepad1.right_bumper) {
+                clawGrip.setPosition(180);
+            } else if (gamepad1.left_bumper) {
+                clawGrip.setPosition(90);
+            }
+
+            // Update PID control for slide pitch (with simple proportional control for now)
+            double error = targetPosition - slidePitch.getCurrentPosition();
+            integral += error;
+            double derivative = error - previousError;
+            double pidOutput = Kp * error + Ki * integral + Kd * derivative;
+
+            slidePitch.setPower(pidOutput); // Apply the PID output to the slide pitch motor
+
+            // Save PID values if buttons on gamepad 2 are pressed
+            if (gamepad2.dpad_up) {
+                Kp += 0.01;
+                savePIDValues();
+            } else if (gamepad2.dpad_down) {
+                Kp -= 0.01;
+                savePIDValues();
+            }
+
+            if (gamepad2.dpad_left) {
+                Ki += 0.0001;
+                savePIDValues();
+            } else if (gamepad2.dpad_right) {
+                Ki -= 0.0001;
+                savePIDValues();
+            }
+
+            if (gamepad2.left_bumper) {
+                Kd += 0.001;
+                savePIDValues();
+            } else if (gamepad2.right_bumper) {
+                Kd -= 0.001;
+                savePIDValues();
+            }
+
+            // Telemetry
+            telemetry.addData("Status:", "Running");
+            telemetry.addData("Wrist Pitch:", wristPitch.getPosition());
+            telemetry.addData("Claw Roll:", clawRoll.getPosition());
+            telemetry.addData("Claw Grip:", clawGrip.getPosition());
+            telemetry.addData("Slide Pitch Power:", slidePitch.getPower());
+            telemetry.addData("PID Kp:", Kp);
+            telemetry.addData("PID Ki:", Ki);
+            telemetry.addData("PID Kd:", Kd);
+            telemetry.addData("Slide Pitch Position:", slidePitch.getCurrentPosition());
         }
+    }
 
-        if(gamepad1.dpad_left){
-            yaw.setPosition(1);
-        } else if (gamepad1.dpad_right){
-            yaw.setPosition(0);
+    // Load PID values from the file
+    private void loadPIDValues() {
+        if (pidFile.exists()) {
+            try (BufferedReader reader = new BufferedReader(new FileReader(pidFile))) {
+                Kp = Double.parseDouble(reader.readLine());
+                Ki = Double.parseDouble(reader.readLine());
+                Kd = Double.parseDouble(reader.readLine());
+            } catch (IOException e) {
+                telemetry.addData("Error", "Failed to load PID values");
+            }
         }
-
-        // Send calculated power to wheels
-        leftFront .setPower(leftFrontPower) ;
-        leftBack  .setPower(leftBackPower)  ;
-        rightFront.setPower(rightFrontPower);
-        rightBack .setPower(rightBackPower) ;
-        arm       .setPower(armPower)       ;
-
-
     }
 
-    /*
-     * Code to run ONCE after the driver hits STOP
-     */
-    @Override
-    public void stop() {
+    // Save PID values to file
+    private void savePIDValues() {
+        try (FileWriter writer = new FileWriter(pidFile)) {
+            writer.write(Kp + "\n");
+            writer.write(Ki + "\n");
+            writer.write(Kd + "\n");
+        } catch (IOException e) {
+            telemetry.addData("Error", "Failed to save PID values");
+        }
     }
-
 }
