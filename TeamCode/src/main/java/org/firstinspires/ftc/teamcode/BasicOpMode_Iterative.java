@@ -12,9 +12,6 @@ public class BasicOpMode_Iterative extends LinearOpMode {
     private int targetSlidePitchPosition = 0;
     private int targetSlideRetractionPosition = 0;
 
-    private final int SLIDE_HORIZONTAL_MAX_POSITION = 500; // tune this value
-    private final int SLIDE_HORIZONTAL_MIN_POSITION = 0;
-
     // Calibration variables
     private Integer verticalPositionCalibration = null; // null = not calibrated yet
     private final int VERTICAL_POSITION_TOLERANCE = 20; // allowable encoder ticks tolerance
@@ -53,7 +50,6 @@ public class BasicOpMode_Iterative extends LinearOpMode {
         waitForStart();
         if (isStopRequested()) return;
 
-        // For toggle button press edge detection
         boolean prevToggleButtonState = false;
 
         while (opModeIsActive()) {
@@ -69,10 +65,9 @@ public class BasicOpMode_Iterative extends LinearOpMode {
             frontRightMotor.setPower((y - x - rx) / denominator);
             backRightMotor.setPower((y + x - rx) / denominator);
 
-            // --- Calibration: Detect R3 + L3 button combo press to set vertical position calibration ---
+            // Calibration: R3 + L3 to set vertical position calibration
             boolean currentToggleButtonState = gamepad1.right_stick_button && gamepad1.left_stick_button;
             if (currentToggleButtonState && !prevToggleButtonState) {
-                // Button combo just pressed - calibrate vertical position
                 verticalPositionCalibration = slidePitch.getCurrentPosition();
                 telemetry.addData("Calibration", "Vertical position calibrated at %d", verticalPositionCalibration);
             }
@@ -89,33 +84,25 @@ public class BasicOpMode_Iterative extends LinearOpMode {
                 }
             }
 
-            // --- Slide pitch control ---
+            // Slide pitch control (RUN_TO_POSITION)
             if (gamepad1.y) {
-                targetSlidePitchPosition += 1; // move to position +1 for smooth PID control
+                targetSlidePitchPosition += 1;
             } else if (gamepad1.x) {
                 targetSlidePitchPosition -= 1;
             }
             slidePitch.setTargetPosition(targetSlidePitchPosition);
             slidePitch.setPower(0.8);
 
-            // --- Slide retraction control with software limits applied only if horizontal ---
+            // Slide retraction control (RUN_TO_POSITION, no software limit)
             if (gamepad1.right_trigger > 0.1) {
                 targetSlideRetractionPosition += 1;
             } else if (gamepad1.left_trigger > 0.1) {
                 targetSlideRetractionPosition -= 1;
             }
-
-            if (isSlideHorizontal) {
-                if (targetSlideRetractionPosition > SLIDE_HORIZONTAL_MAX_POSITION) {
-                    targetSlideRetractionPosition = SLIDE_HORIZONTAL_MAX_POSITION;
-                } else if (targetSlideRetractionPosition < SLIDE_HORIZONTAL_MIN_POSITION) {
-                    targetSlideRetractionPosition = SLIDE_HORIZONTAL_MIN_POSITION;
-                }
-            }
             slideRetraction.setTargetPosition(targetSlideRetractionPosition);
             slideRetraction.setPower(0.8);
 
-            // --- Wrist pitch control (CRServo) ---
+            // Wrist pitch control (CRServo)
             if (gamepad1.dpad_up) {
                 wristPitch.setPower(0.5);
             } else if (gamepad1.dpad_down) {
@@ -124,7 +111,7 @@ public class BasicOpMode_Iterative extends LinearOpMode {
                 wristPitch.setPower(0);
             }
 
-            // --- Claw roll (CRServo) ---
+            // Claw roll (CRServo)
             if (gamepad1.dpad_left) {
                 clawRoll.setPower(0.5);
             } else if (gamepad1.dpad_right) {
@@ -133,7 +120,7 @@ public class BasicOpMode_Iterative extends LinearOpMode {
                 clawRoll.setPower(0);
             }
 
-            // --- Claw grip (CRServo) ---
+            // Claw grip (CRServo)
             if (gamepad1.right_bumper) {
                 clawGrip.setPower(0.8);
             } else if (gamepad1.left_bumper) {
@@ -148,7 +135,7 @@ public class BasicOpMode_Iterative extends LinearOpMode {
             telemetry.addData("SlidePitch Pos", slidePitch.getCurrentPosition());
             telemetry.addData("SlideRetraction Target", targetSlideRetractionPosition);
             telemetry.addData("SlideRetraction Pos", slideRetraction.getCurrentPosition());
-            telemetry.addData("SlideRetraction Limited", isSlideHorizontal);
+            telemetry.addData("Slide Retraction Limited", "No limit applied");
             telemetry.update();
         }
     }
