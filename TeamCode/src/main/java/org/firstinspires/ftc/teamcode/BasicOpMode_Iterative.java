@@ -4,22 +4,20 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.CRServo;
 
 @TeleOp
 public class BasicOpMode_Iterative extends LinearOpMode {
 
-    private double Kp = 0.05;
-    private double Ki = 0.001;
-    private double Kd = 0.01;
+    private int targetSlidePitchPosition = 0;
+    private int targetSlideRetractionPosition = 0;
 
-    private double wristPitchPosition = 0.5;
-    private boolean isManualWristPitchControl = false;
+    private final int SLIDE_HORIZONTAL_MAX_POSITION = 500; // tune this value
+    private final int SLIDE_HORIZONTAL_MIN_POSITION = 0;
 
-    private double previousError = 0;
-    private double integral = 0;
-    private double targetPosition = 0;
-    private double manualWristOffset = 0.0;
+    // Calibration variables
+    private Integer verticalPositionCalibration = null; // null = not calibrated yet
+    private final int VERTICAL_POSITION_TOLERANCE = 20; // allowable encoder ticks tolerance
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -31,23 +29,38 @@ public class BasicOpMode_Iterative extends LinearOpMode {
         DcMotor slidePitch = hardwareMap.dcMotor.get("slidePitch");
         DcMotor slideRetraction = hardwareMap.dcMotor.get("slideRetraction");
 
-        Servo wristPitch = hardwareMap.servo.get("wristPitch");
-        Servo clawRoll = hardwareMap.servo.get("clawRoll");
-        Servo clawGrip = hardwareMap.servo.get("clawGrip");
+        CRServo wristPitch = hardwareMap.crservo.get("wristPitch");
+        CRServo clawRoll = hardwareMap.crservo.get("clawRoll");
+        CRServo clawGrip = hardwareMap.crservo.get("clawGrip");
 
-        frontRightMotor.setDirection(DcMotorSimple.Direction.REVERSE);
-        backRightMotor.setDirection(DcMotorSimple.Direction.REVERSE);
+        frontRightMotor.setDirection(DcMotorSimple.Direction.FORWARD);
+        backRightMotor.setDirection(DcMotorSimple.Direction.FORWARD);
+        frontLeftMotor.setDirection(DcMotorSimple.Direction.REVERSE);
+        backLeftMotor.setDirection(DcMotorSimple.Direction.REVERSE);
 
         slidePitch.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        slidePitch.setDirection(DcMotor.Direction.REVERSE);
+
+        slideRetraction.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        slideRetraction.setDirection(DcMotor.Direction.FORWARD);
+
+        slidePitch.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        slidePitch.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+
+        slideRetraction.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        slideRetraction.setMode(DcMotor.RunMode.RUN_TO_POSITION);
 
         waitForStart();
         if (isStopRequested()) return;
 
+        // For toggle button press edge detection
+        boolean prevToggleButtonState = false;
+
         while (opModeIsActive()) {
 
-            // Drive control
-            double y = -gamepad1.left_stick_y;
-            double x = gamepad1.left_stick_x * 1.1;
+            // Drive control (unchanged)
+            double y = -gamepad1.left_stick_x;
+            double x = gamepad1.left_stick_y * 1.1;
             double rx = gamepad1.right_stick_x;
 
             double denominator = Math.max(Math.abs(y) + Math.abs(x) + Math.abs(rx), 1);
@@ -56,70 +69,86 @@ public class BasicOpMode_Iterative extends LinearOpMode {
             frontRightMotor.setPower((y - x - rx) / denominator);
             backRightMotor.setPower((y + x - rx) / denominator);
 
-            // Slide pitch control
+            // --- Calibration: Detect R3 + L3 button combo press to set vertical position calibration ---
+            boolean currentToggleButtonState = gamepad1.right_stick_button && gamepad1.left_stick_button;
+            if (currentToggleButtonState && !prevToggleButtonState) {
+                // Button combo just pressed - calibrate vertical position
+                verticalPositionCalibration = slidePitch.getCurrentPosition();
+                telemetry.addData("Calibration", "Vertical position calibrated at %d", verticalPositionCalibration);
+            }
+            prevToggleButtonState = currentToggleButtonState;
+
+            // Determine if slidePitch is vertical or horizontal based on calibration
+            boolean isSlideHorizontal = true; // default
+
+            if (verticalPositionCalibration != null) {
+                int currentPos = slidePitch.getCurrentPosition();
+                int diff = Math.abs(currentPos - verticalPositionCalibration);
+                if (diff <= VERTICAL_POSITION_TOLERANCE) {
+                    isSlideHorizontal = false; // slide is vertical
+                }
+            }
+
+            // --- Slide pitch control ---
             if (gamepad1.y) {
-                targetPosition += 1;
+                targetSlidePitchPosition += 1; // move to position +1 for smooth PID control
             } else if (gamepad1.x) {
-                targetPosition -= 1;
+                targetSlidePitchPosition -= 1;
+            }
+            slidePitch.setTargetPosition(targetSlidePitchPosition);
+            slidePitch.setPower(0.8);
+
+            // --- Slide retraction control with software limits applied only if horizontal ---
+            if (gamepad1.right_trigger > 0.1) {
+                targetSlideRetractionPosition += 1;
+            } else if (gamepad1.left_trigger > 0.1) {
+                targetSlideRetractionPosition -= 1;
             }
 
-            // Slide retraction control
-            if (gamepad1.right_trigger > 0) {
-                slideRetraction.setPower(0.8);
-            } else if (gamepad1.left_trigger > 0) {
-                slideRetraction.setPower(-0.8);
-            } else {
-                slideRetraction.setPower(0);
+            if (isSlideHorizontal) {
+                if (targetSlideRetractionPosition > SLIDE_HORIZONTAL_MAX_POSITION) {
+                    targetSlideRetractionPosition = SLIDE_HORIZONTAL_MAX_POSITION;
+                } else if (targetSlideRetractionPosition < SLIDE_HORIZONTAL_MIN_POSITION) {
+                    targetSlideRetractionPosition = SLIDE_HORIZONTAL_MIN_POSITION;
+                }
             }
+            slideRetraction.setTargetPosition(targetSlideRetractionPosition);
+            slideRetraction.setPower(0.8);
 
-            // Wrist pitch control
+            // --- Wrist pitch control (CRServo) ---
             if (gamepad1.dpad_up) {
-                manualWristOffset += 0.01;
-                isManualWristPitchControl = true;
+                wristPitch.setPower(0.5);
             } else if (gamepad1.dpad_down) {
-                manualWristOffset -= 0.01;
-                isManualWristPitchControl = true;
+                wristPitch.setPower(-0.5);
+            } else {
+                wristPitch.setPower(0);
             }
 
-            double baseWristPitch = 0.5 - slidePitch.getCurrentPosition() / 1000.0;
-            wristPitchPosition = baseWristPitch + manualWristOffset;
-            wristPitchPosition = Math.max(0, Math.min(1, wristPitchPosition));
-            wristPitch.setPosition(wristPitchPosition);
-
-            // Claw roll
+            // --- Claw roll (CRServo) ---
             if (gamepad1.dpad_left) {
-                clawRoll.setPosition(clawRoll.getPosition() + 0.05);
+                clawRoll.setPower(0.5);
             } else if (gamepad1.dpad_right) {
-                clawRoll.setPosition(clawRoll.getPosition() - 0.05);
+                clawRoll.setPower(-0.5);
+            } else {
+                clawRoll.setPower(0);
             }
 
-            // Claw grip
+            // --- Claw grip (CRServo) ---
             if (gamepad1.right_bumper) {
-                clawGrip.setPosition(180);
+                clawGrip.setPower(0.8);
             } else if (gamepad1.left_bumper) {
-                clawGrip.setPosition(90);
+                clawGrip.setPower(-0.8);
+            } else {
+                clawGrip.setPower(0);
             }
-
-            // PID control for slide pitch
-            double error = targetPosition - slidePitch.getCurrentPosition();
-            integral += error;
-            double derivative = error - previousError;
-            double pidOutput = Kp * error + Ki * integral + Kd * derivative;
-
-            slidePitch.setPower(pidOutput);
-            previousError = error;
 
             // Telemetry
             telemetry.addData("Status", "Running");
-            telemetry.addData("Wrist Pitch", wristPitchPosition);
-            telemetry.addData("Manual Wrist Offset", manualWristOffset);
-            telemetry.addData("Claw Roll", clawRoll.getPosition());
-            telemetry.addData("Claw Grip", clawGrip.getPosition());
-            telemetry.addData("Slide Pitch Power", slidePitch.getPower());
-            telemetry.addData("PID Kp", Kp);
-            telemetry.addData("PID Ki", Ki);
-            telemetry.addData("PID Kd", Kd);
-            telemetry.addData("Slide Pitch Position", slidePitch.getCurrentPosition());
+            telemetry.addData("Vertical Calibration", verticalPositionCalibration == null ? "Not calibrated" : verticalPositionCalibration);
+            telemetry.addData("SlidePitch Pos", slidePitch.getCurrentPosition());
+            telemetry.addData("SlideRetraction Target", targetSlideRetractionPosition);
+            telemetry.addData("SlideRetraction Pos", slideRetraction.getCurrentPosition());
+            telemetry.addData("SlideRetraction Limited", isSlideHorizontal);
             telemetry.update();
         }
     }
