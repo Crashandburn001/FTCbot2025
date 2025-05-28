@@ -1,16 +1,23 @@
 package org.firstinspires.ftc.teamcode;
 
+import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.CRServo;
 
+@Config
 @TeleOp
 public class BasicOpMode_Iterative extends LinearOpMode {
 
-    private int targetSlidePitchPosition = 0;
-    private int targetSlideRetractionPosition = 0;
+    public static int targetSlidePitchPosition = 0;
+    public static int targetSlideRetractionPosition = 0;
+
+    public static float adjustmentsClawRoll = 0.5f;
+    public static float adjustmentsWristPitch = 0.5f;
+
+    public static int adjustmentsSlidePitch = 20;
 
     // Calibration variables
     private Integer verticalPositionCalibration = null; // null = not calibrated yet
@@ -42,16 +49,17 @@ public class BasicOpMode_Iterative extends LinearOpMode {
         slideRetraction.setDirection(DcMotor.Direction.FORWARD);
 
         slidePitch.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        slidePitch.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        slidePitch.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
         slideRetraction.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        slideRetraction.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        slideRetraction.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
         waitForStart();
         if (isStopRequested()) return;
 
         boolean prevToggleButtonState = false;
-
+        targetSlidePitchPosition = slidePitch.getCurrentPosition();
+        targetSlideRetractionPosition = slidePitch.getCurrentPosition();
         while (opModeIsActive()) {
 
             // Drive control (unchanged)
@@ -86,36 +94,38 @@ public class BasicOpMode_Iterative extends LinearOpMode {
 
             // Slide pitch control (RUN_TO_POSITION)
             if (gamepad1.y) {
-                targetSlidePitchPosition += 1;
+                targetSlidePitchPosition += adjustmentsSlidePitch;
             } else if (gamepad1.x) {
-                targetSlidePitchPosition -= 1;
+                targetSlidePitchPosition -= adjustmentsSlidePitch;
             }
             slidePitch.setTargetPosition(targetSlidePitchPosition);
-            slidePitch.setPower(0.8);
+            slidePitch.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+            slidePitch.setPower(1);
 
             // Slide retraction control (RUN_TO_POSITION, no software limit)
             if (gamepad1.right_trigger > 0.1) {
-                targetSlideRetractionPosition += 1;
+                targetSlideRetractionPosition += 10;
             } else if (gamepad1.left_trigger > 0.1) {
-                targetSlideRetractionPosition -= 1;
+                targetSlideRetractionPosition -= 10;
             }
             slideRetraction.setTargetPosition(targetSlideRetractionPosition);
-            slideRetraction.setPower(0.8);
+            slideRetraction.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+            slideRetraction.setPower(1);
 
             // Wrist pitch control (CRServo)
             if (gamepad1.dpad_up) {
-                wristPitch.setPower(0.5);
+                wristPitch.setPower(adjustmentsWristPitch);
             } else if (gamepad1.dpad_down) {
-                wristPitch.setPower(-0.5);
+                wristPitch.setPower(-adjustmentsWristPitch);
             } else {
                 wristPitch.setPower(0);
             }
 
             // Claw roll (CRServo)
             if (gamepad1.dpad_left) {
-                clawRoll.setPower(0.5);
+                clawRoll.setPower(adjustmentsClawRoll);
             } else if (gamepad1.dpad_right) {
-                clawRoll.setPower(-0.5);
+                clawRoll.setPower(-adjustmentsClawRoll);
             } else {
                 clawRoll.setPower(0);
             }
@@ -123,10 +133,12 @@ public class BasicOpMode_Iterative extends LinearOpMode {
             // Claw grip (CRServo)
             if (gamepad1.right_bumper) {
                 clawGrip.setPower(0.8);
+                gamepad1.rumble(1);
             } else if (gamepad1.left_bumper) {
                 clawGrip.setPower(-0.8);
             } else {
                 clawGrip.setPower(0);
+                gamepad1.stopRumble();
             }
 
             // Telemetry
