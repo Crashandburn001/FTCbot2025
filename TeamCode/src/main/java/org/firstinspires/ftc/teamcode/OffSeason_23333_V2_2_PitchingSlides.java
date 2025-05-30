@@ -12,21 +12,22 @@ public class OffSeason_23333_V2_2_PitchingSlides extends LinearOpMode {
     public static int targetSlideRetractionPosition = 0;
 
     public static double wristPitchPos = 0.5;
-    public static double clawFingerPos = 0.5; // legacy; not used anymore
 
     public static double adjustmentsWristPitch = 0.01;
     public static float adjustmentsClawRoll = 0.5f;
     public static int adjustmentsSlidePitch = 20;
 
-    // Set Positions
+    // Variables for Collect Set Pos
     public static int COLLECT_SLIDE_PITCH = 0;
     public static int COLLECT_SLIDE_RETRACTION = -1900;
     public static double COLLECT_WRIST_PITCH = 0.2;
 
+    //Variables for SCORE Set Pos
     public static int SCORE_SLIDE_PITCH = 300;
     public static int SCORE_SLIDE_RETRACTION = -600;
     public static double SCORE_WRIST_PITCH = 0.8;
 
+    //Variables for IDLE Set Pos
     public static int IDLE_SLIDE_PITCH = 0;
     public static int IDLE_SLIDE_RETRACTION = 0;
     public static double IDLE_WRIST_PITCH = 0.5;
@@ -51,7 +52,6 @@ public class OffSeason_23333_V2_2_PitchingSlides extends LinearOpMode {
 
         slideRetraction.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         slideRetraction.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-
         waitForStart();
 
         targetSlidePitchPosition = slidePitch.getCurrentPosition();
