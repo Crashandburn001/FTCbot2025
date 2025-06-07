@@ -5,7 +5,7 @@ import com.qualcomm.robotcore.eventloop.opmode.*;
 import com.qualcomm.robotcore.hardware.*;
 
 @Config
-@TeleOp(name = "BasicOpMode_Iterative")
+@TeleOp(name = "OffSeason_23333_V2_2_PitchingSlides")
 public class OffSeason_23333_V2_2_PitchingSlides extends LinearOpMode {
 
     public static int targetSlidePitchPosition = 0;
@@ -90,15 +90,15 @@ public class OffSeason_23333_V2_2_PitchingSlides extends LinearOpMode {
 
         while (opModeIsActive()) {
             // Driving
-            double drive = -gamepad1.left_stick_y;
-            double strafe = gamepad1.left_stick_x;
+            double drive = -gamepad1.left_stick_x;
+            double strafe = gamepad1.left_stick_y;
             double turn = gamepad1.right_stick_x;
 
             double denominator = Math.max(Math.abs(drive) + Math.abs(strafe) + Math.abs(turn), 1);
-            double fl = (drive + strafe + turn) / denominator;
+            double fl = (drive + strafe - turn) / denominator;
             double fr = (drive - strafe - turn) / denominator;
             double bl = (drive - strafe + turn) / denominator;
-            double br = (drive + strafe - turn) / denominator;
+            double br = (drive + strafe + turn) / denominator;
 
             frontLeft.setPower(fl);
             frontRight.setPower(fr);
@@ -125,8 +125,8 @@ public class OffSeason_23333_V2_2_PitchingSlides extends LinearOpMode {
             slideRetraction.setPower(1);
 
             // Wrist pitch control
-            if (gamepad1.dpad_up) wristPitchPos += adjustmentsWristPitch;
-            else if (gamepad1.dpad_down) wristPitchPos -= adjustmentsWristPitch;
+            if (gamepad1.dpad_down) wristPitchPos += adjustmentsWristPitch;
+            else if (gamepad1.dpad_up) wristPitchPos -= adjustmentsWristPitch;
 
             wristPitchPos = Math.max(0, Math.min(1, wristPitchPos));
             wristPitch.setPosition(wristPitchPos);
