@@ -1,4 +1,4 @@
-# This is the github repository for the QASMT Teamnamhere team for the 24-25 Into The Deep season.
+# This is the github repository for FTC team 23333 Hercules team for the 24-25 Into The Deep season.
 
 ## ⚠️⚠️⚠️
 If you do not know how github works, please talk to me (LW) and I will teach you, otherwise you may cause some very big headaches
