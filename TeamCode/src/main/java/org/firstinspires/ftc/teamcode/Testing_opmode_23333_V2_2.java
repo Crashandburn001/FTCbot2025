@@ -99,6 +99,7 @@ public class Testing_opmode_23333_V2_2 extends LinearOpMode {
                 gamepad1.stopRumble();
             }
 
+            telemetry.addData("Status", "Running TeleOp");
             telemetry.addData("SlidePitch Pos", slidePitch.getCurrentPosition());
             telemetry.addData("SlideRetraction Pos", slideRetraction.getCurrentPosition());
             telemetry.addData("Target Pitch", targetSlidePitchPosition);

@@ -1,6 +1,7 @@
 
 
 package org.firstinspires.ftc.teamcode;
+import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.CRServo;
@@ -11,6 +12,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 
 @Autonomous(name="OffSeason_23333_V2_Auto")
+@Config
 
 public class OffSeason_23333_V2_Auto extends LinearOpMode {
 
@@ -50,6 +52,8 @@ public class OffSeason_23333_V2_Auto extends LinearOpMode {
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
             //Main loop here.
+
+            telemetry.addData("Status", "Running Autonomous");
             telemetry.update();
         }
     }}
